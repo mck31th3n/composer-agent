@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: musicdiff
+Version: 0.1.0
+Summary: Notation↔MIDI measure-aware diff tool
+Requires-Python: >=3.11
+Requires-Dist: music21<10,>=9.1.0
+Requires-Dist: mido<2,>=1.3.0
+Requires-Dist: pydantic<3,>=2.0.0
+Requires-Dist: jsonschema<5,>=4.0.0
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8.0.0; extra == "dev"
+Requires-Dist: ruff>=0.4.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"

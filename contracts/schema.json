@@ -1,0 +1,250 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MusicDiff Report",
+  "description": "Output schema for notation vs MIDI comparison",
+  "type": "object",
+  "required": [
+    "source_xml",
+    "source_midi",
+    "timestamp",
+    "tempo_bpm",
+    "total_measures",
+    "diffs",
+    "alignment_summary"
+  ],
+  "properties": {
+    "source_xml": {
+      "type": "string",
+      "description": "Path to input MusicXML file"
+    },
+    "source_midi": {
+      "type": "string",
+      "description": "Path to input MIDI file"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of analysis run"
+    },
+    "tempo_bpm": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Tempo used for alignment (inferred or default)"
+    },
+    "total_measures": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of measures in the score"
+    },
+    "alignment_summary": {
+      "type": "object",
+      "description": "Metadata about alignment quality and assumptions",
+      "required": [
+        "tempo_source",
+        "time_signature_map_used",
+        "has_pickup",
+        "alignment_confidence"
+      ],
+      "properties": {
+        "tempo_source": {
+          "type": "string",
+          "enum": [
+            "musicxml",
+            "midi_tempo_map",
+            "override",
+            "default_120"
+          ],
+          "description": "Where tempo was sourced from"
+        },
+        "time_signature_map_used": {
+          "type": "boolean",
+          "description": "Whether time signature changes were detected and used"
+        },
+        "has_pickup": {
+          "type": "boolean",
+          "description": "Whether score starts with a pickup/anacrusis measure"
+        },
+        "pickup_beats": {
+          "type": "number",
+          "description": "Duration of pickup in beats (if has_pickup is true)"
+        },
+        "alignment_confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Overall confidence in alignment quality"
+        },
+        "estimated_beat_error_mean": {
+          "type": "number",
+          "description": "Mean beat alignment error across matched events"
+        },
+        "estimated_beat_error_max": {
+          "type": "number",
+          "description": "Maximum beat alignment error observed"
+        },
+        "midi_has_tempo_map": {
+          "type": "boolean",
+          "description": "Whether MIDI file contained tempo change events"
+        },
+        "pedal_accounted_for": {
+          "type": "boolean",
+          "description": "Whether sustain pedal was considered (always false for MVP)"
+        }
+      }
+    },
+    "unsupported_features": {
+      "type": "array",
+      "description": "List of notation features detected but not fully supported",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature",
+          "measure",
+          "description"
+        ],
+        "properties": {
+          "feature": {
+            "type": "string",
+            "enum": [
+              "tuplet",
+              "grace_note",
+              "tremolo",
+              "fermata",
+              "multi_voice",
+              "time_sig_change",
+              "key_sig_change",
+              "cue_note"
+            ],
+            "description": "Type of unsupported feature"
+          },
+          "measure": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Measure where feature was detected (0 for pickup)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of impact"
+          }
+        }
+      }
+    },
+    "diffs": {
+      "type": "array",
+      "description": "List of detected mismatches",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "measure",
+          "beat",
+          "expected",
+          "observed",
+          "confidence",
+          "severity",
+          "reason",
+          "suggestion"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "duration_mismatch",
+              "duration_mismatch_tie",
+              "missing_note",
+              "extra_note",
+              "pitch_mismatch",
+              "unsupported_feature"
+            ],
+            "description": "Category of mismatch"
+          },
+          "measure": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Measure number (0 for pickup, 1+ for normal measures)"
+          },
+          "beat": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Beat within measure (1.0 = first beat)"
+          },
+          "expected": {
+            "type": "object",
+            "description": "What the score notation indicates",
+            "properties": {
+              "pitch": {
+                "type": "integer"
+              },
+              "pitch_midi": {
+                "type": "integer",
+                "description": "MIDI pitch number used for comparison"
+              },
+              "pitch_spelled": {
+                "type": "string",
+                "description": "Notated spelling (C#4, Db4) for display only"
+              },
+              "duration": {
+                "type": "number"
+              },
+              "logical_duration": {
+                "type": "number",
+                "description": "Duration including tied notes"
+              },
+              "has_tie": {
+                "type": "boolean"
+              }
+            }
+          },
+          "observed": {
+            "type": "object",
+            "description": "What the MIDI performance shows",
+            "properties": {
+              "pitch": {
+                "type": "integer"
+              },
+              "duration_sec": {
+                "type": "number"
+              },
+              "duration_beats": {
+                "type": "number"
+              }
+            }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Alignment confidence (1.0 = certain match)"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ],
+            "description": "How critical this mismatch is"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Technical reason for mismatch (e.g., 'tie_merge', 'tempo_map_missing', 'unsupported_tuplet')"
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "Human-readable fix suggestion"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Non-fatal issues encountered during analysis",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

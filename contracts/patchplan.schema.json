@@ -1,0 +1,111 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MusicRepair Patch Plan",
+    "description": "Declarative plan for applying repairs to a MusicXML file based on a diff report.",
+    "type": "object",
+    "required": [
+        "source_file",
+        "source_diff_timestamp",
+        "operations"
+    ],
+    "properties": {
+        "source_file": {
+            "type": "string",
+            "description": "Path to the MusicXML file to be repaired"
+        },
+        "source_diff_timestamp": {
+            "type": "string",
+            "description": "Timestamp from the diff.json used to generate this plan"
+        },
+        "operations": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/PatchOperation"
+            }
+        }
+    },
+    "definitions": {
+        "PatchOperation": {
+            "type": "object",
+            "required": [
+                "op_id",
+                "type",
+                "measure",
+                "beat",
+                "voice",
+                "params"
+            ],
+            "properties": {
+                "op_id": {
+                    "type": "string",
+                    "description": "Unique ID for this operation"
+                },
+                "diff_ref": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        },
+                        "measure": {
+                            "type": "integer"
+                        },
+                        "beat": {
+                            "type": "number"
+                        }
+                    },
+                    "description": "Reference to the diff this operation resolves"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "insert_note",
+                        "delete_note",
+                        "update_duration",
+                        "update_pitch",
+                        "noop"
+                    ],
+                    "description": "Type of repair operation"
+                },
+                "measure": {
+                    "type": "integer",
+                    "description": "Target measure number"
+                },
+                "beat": {
+                    "type": "number",
+                    "description": "Target beat within measure"
+                },
+                "voice": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Target voice number"
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Operation-specific parameters",
+                    "properties": {
+                        "pitch_midi": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 127
+                        },
+                        "duration": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        "old_pitch_midi": {
+                            "type": "integer"
+                        },
+                        "old_duration": {
+                            "type": "number"
+                        }
+                    },
+                    "dependencies": {
+                        "pitch_midi": [
+                            "duration"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+musicdiff = musicdiff.__main__:main
