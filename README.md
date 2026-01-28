@@ -10,6 +10,10 @@ A notation-to-MIDI measure-aware diff tool that compares MusicXML scores with MI
 - Identifying where a performer deviated from the written music
 - Quality assurance for music notation and MIDI production workflows
 
+## Status
+
+This project is in **active development**. It is functional for basic use cases but not production-hardened. Contributions and feedback welcome.
+
 ## Installation
 
 ```bash
