@@ -12,7 +12,7 @@ A notation-to-MIDI measure-aware diff tool that compares MusicXML scores with MI
 
 ## Status
 
-This project is in **active development**. It is functional for basic use cases but not production-hardened. Contributions and feedback welcome.
+This project is a functional MVP. Handles basic score-to-performance comparison use cases. Known limitations are documented below.
 
 ## Installation
 
