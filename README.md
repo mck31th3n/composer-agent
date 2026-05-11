@@ -1,42 +1,84 @@
-# musicdiff
+# Float
 
-A notation-to-MIDI measure-aware diff tool that compares MusicXML scores with MIDI performances and generates detailed difference reports.
+**Privacy-first music intelligence platform.**
 
-## Overview
+Float combines deterministic compositional analysis with local LLM-powered mentoring. Everything runs offline — your music stays on your machine.
 
-`musicdiff` parses a MusicXML file and a MIDI file, aligns the notation events with the performance events using beat-grid quantization, and generates a JSON report of any mismatches found. This is useful for:
+## Modules
 
-- Validating MIDI performances against the original score
-- Identifying where a performer deviated from the written music
-- Quality assurance for music notation and MIDI production workflows
+### Float Core (`float_core`)
+Composition analysis and feedback engine. Analyzes note-list inputs and returns deterministic, auditable JSON with findings, evidence, and constrained revision suggestions. Does **not** generate full compositions by default.
 
-## Status
+Inputs supported: note-list text/JSON, MusicXML, and MIDI (via music21 import).
 
-This project is a functional MVP. Handles basic score-to-performance comparison use cases. Known limitations are documented below.
+MIDI/MusicXML cleanup (notation-friendly defaults):
+- Quantizes to `1/16` grid
+- Drops ultra-short notes (`< 0.125` quarter length)
+- Can be adjusted via CLI:
+```bash
+python3 -m float_core --input inputs/example_bass.mid --quantize-grid 1/8 --min-duration-ql 0.25
+```
 
-## Installation
+Audio transcription (offline):
+- Uses BasicPitch for audio → MIDI (optional dependency).
+- Install: `python3 -m pip install -e ".[audio]"`
+- Run:
+```bash
+python3 -m float_core --audio path/to/audio.wav --quantize-grid 1/16
+```
+
+### Float Diff (`float_diff`)
+Notation-MIDI measure-aware diff tool. Compares MusicXML scores with MIDI performances and generates detailed difference reports.
 
 ```bash
-pip install -e .
+python -m float_diff --xml <path-to-musicxml> --midi <path-to-midi> --out <output.json>
+```
+
+Includes a repair module for MusicXML → MIDI alignment:
+```bash
+float-diff patch --diff diff.json --xml score.xml --out plan.json
+float-diff apply --xml score.xml --patch plan.json --out repaired.musicxml
+```
+
+## Quick Start
+
+```bash
+python3 -m pip install -e .
 ```
 
 For development (includes pytest, ruff, mypy):
-
 ```bash
 pip install -e ".[dev]"
 ```
 
-**Note:** Requires Python 3.11 or higher.
+**Requires Python 3.11+.**
 
-## Usage
-
-### Basic Usage
+### Demo
 
 ```bash
-python -m musicdiff --xml <path-to-musicxml> --midi <path-to-midi> --out <output.json>
+make demo
 ```
 
-### Arguments
+Local web demo:
+```bash
+PYTHONPATH=src python3 demo/demo_web.py
+```
+
+### CLI
+
+```bash
+python3 -m float_core --input examples/example_1.txt
+python3 -m float_core --input examples/example_1.txt --profile default --include-timestamp
+FLOAT_HMAC_KEY=secret python3 -m float_core --input examples/example_1.txt
+```
+
+### Diff
+
+```bash
+python -m float_diff --xml score.xml --midi performance.mid --out diff.json
+```
+
+Arguments:
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -45,25 +87,13 @@ python -m musicdiff --xml <path-to-musicxml> --midi <path-to-midi> --out <output
 | `--out`  | Yes      | Path to output JSON file |
 | `--tempo`| No       | Override tempo in BPM (default: infer from MusicXML or 120) |
 
-### Example
-
-```bash
-python -m musicdiff --xml samples/sample.xml --midi samples/sample.mid --out diff.json
-```
-
 ### Validating Output
 
-To validate a diff.json file against the schema:
-
 ```bash
-python -m musicdiff.validate diff.json
+python -m float_diff.validate diff.json
 ```
 
-Returns exit code 0 and prints "Valid" if the file is valid, or exit code 1 with error details if invalid.
-
 ## Output Format (diff.json)
-
-The output is a JSON file with the following structure:
 
 ```json
 {
@@ -74,16 +104,8 @@ The output is a JSON file with the following structure:
   "total_measures": 32,
   "alignment_summary": {
     "tempo_source": "musicxml",
-    "time_signature_map_used": false,
-    "has_pickup": false,
-    "pickup_beats": 0.0,
-    "alignment_confidence": "high",
-    "estimated_beat_error_mean": 0.02,
-    "estimated_beat_error_max": 0.05,
-    "midi_has_tempo_map": false,
-    "pedal_accounted_for": false
+    "alignment_confidence": "high"
   },
-  "unsupported_features": [],
   "diffs": [...],
   "warnings": []
 }
@@ -91,125 +113,47 @@ The output is a JSON file with the following structure:
 
 ### Diff Types
 
-Each diff object in the `diffs` array has a `type` field indicating the kind of mismatch:
-
 | Type | Description |
 |------|-------------|
-| `missing_note` | Note exists in the MIDI performance but is missing from the MusicXML score. |
-| `extra_note` | Note exists in the MusicXML score but is missing from the MIDI performance. |
-| `duration_mismatch` | Note durations differ significantly between score and performance. |
-| `duration_mismatch_tie` | Duration differs for a tied note. |
-| `pitch_mismatch` | Pitch values differ between score and performance. |
-| `unsupported_feature` | An unsupported notation feature was detected. |
-
-## MusicXML Repair
-
-`musicdiff` includes a repair module that can modify a MusicXML file to match a MIDI performance based on a diff report.
-
-**Note:** The repair process modifies the MusicXML score to align with the MIDI performance (e.g., adding missing notes found in MIDI, removing notes not found in MIDI). Patch plans are intended for single application against the score used to generate them. Re-applying a plan to an already repaired score is undefined behavior.
-
-### Repair Workflow
-
-1. **Generate Plan**: Create a repair plan from a diff report.
-   ```bash
-   python -m musicdiff.repair --diff diff.json --xml score.xml --out plan.json --dry-run
-   ```
-2. **Apply Repairs**: Apply the generated plan to create a repaired MusicXML file.
-   ```bash
-   python -m musicdiff.repair --diff diff.json --xml score.xml --out plan.json --apply --patched-out repaired.musicxml
-   ```
-
-See [docs/patchplan.md](docs/patchplan.md) for detailed technical documentation on the repair system.
-
-## Validating Output
-
-```json
-{
-  "type": "duration_mismatch",
-  "measure": 1,
-  "beat": 2.0,
-  "expected": {
-    "pitch_midi": 60,
-    "pitch_spelled": "C4",
-    "duration": 1.0
-  },
-  "observed": {
-    "pitch": 60,
-    "duration_beats": 0.75,
-    "duration_sec": 0.375
-  },
-  "confidence": 0.85,
-  "severity": "warn",
-  "reason": "duration_differs",
-  "suggestion": "m.1 beat 2.0: notated 1.0 beats, performed ~0.75 beats"
-}
-```
-
-### Severity Levels
-
-- `error`: Critical mismatch (missing/extra notes, pitch differences)
-- `warn`: Significant deviation (duration mismatches)
-- `info`: Informational (unsupported features detected)
-
-### Alignment Summary
-
-The `alignment_summary` object provides metadata about the alignment process:
-
-- `tempo_source`: Where tempo was sourced from (see Tempo Resolution below)
-- `alignment_confidence`: Overall confidence level (`high`, `medium`, `low`)
-- `estimated_beat_error_mean`/`max`: Statistics on alignment accuracy
-- `has_pickup`: Whether the score starts with a pickup measure
-- `midi_has_tempo_map`: Whether the MIDI file contained tempo events (informational only in MVP)
+| `missing_note` | Note in MIDI but missing from MusicXML score |
+| `extra_note` | Note in MusicXML but missing from MIDI performance |
+| `duration_mismatch` | Note durations differ significantly |
+| `duration_mismatch_tie` | Duration differs for a tied note |
+| `pitch_mismatch` | Pitch values differ |
+| `unsupported_feature` | Unsupported notation feature detected |
 
 ### Tempo Resolution
 
-Tempo for alignment is resolved in this priority order:
-
 1. `--tempo` CLI override → `tempo_source: "override"`
-2. MIDI tempo map (if tempo events exist) → `tempo_source: "midi_tempo_map"`
+2. MIDI tempo map → `tempo_source: "midi_tempo_map"`
 3. MusicXML tempo marking → `tempo_source: "musicxml"`
 4. Default 120 BPM → `tempo_source: "default_120"`
-
-When MIDI contains tempo events, the tool uses the MIDI tempo map for more accurate alignment by integrating tempo over time segments.
 
 ## Known Limitations (MVP)
 
 1. **Single-part scores**: Only the first part in multi-part MusicXML files is analyzed.
-
-2. **Unsupported notation features**: The following are detected and flagged but not fully handled:
-   - Tuplets (triplets, etc.) - treated as straight rhythm
-   - Grace notes - timing is ambiguous
-   - Tremolo
-   - Fermata
-   - Time signature changes mid-piece
-   - Key signature changes
-   - Cue notes
-
-3. **Naive quantization**: The alignment uses simple beat-grid quantization with a fixed tolerance of 0.125 beats. Complex rubato or expressive timing may produce false positives.
-
-4. **No pedal support**: Sustain pedal is not accounted for (`pedal_accounted_for: false` always).
-
-5. **Voice handling**: Multiple voices in a single part are flagged as unsupported; only voice 1 is used.
+2. **Unsupported notation**: Tuplets, grace notes, tremolo, fermata, mid-piece time/key sig changes, cue notes — detected and flagged but not fully handled.
+3. **Naive quantization**: Fixed tolerance of 0.125 beats. Complex rubato may produce false positives.
+4. **No pedal support**: `pedal_accounted_for: false` always.
+5. **Voice handling**: Multiple voices flagged as unsupported; only voice 1 is used.
 
 ## Development
 
-### Running Tests
-
 ```bash
 pytest tests/ -v
-```
-
-### Linting
-
-```bash
 ruff check src/ tests/
-```
-
-### Type Checking
-
-```bash
 mypy src/
 ```
+
+## Status
+
+Active development. Core functionality verified: 210 tests passing; 7 known failures remain in the repair-integration suite; 24 tests skipped due to optional dependencies.
+
+## Known Issues
+
+`test_repair_integration.py` contains 7 failing tests due to an API mismatch between the integration test helper (`create_diff_report`) and the current `align_events` signature. The test was written against a prior API that accepted `ScoreMetadata.divisions` and `time_signatures` as positional arguments; the current signature accepts `tempo_bpm` and `time_signature` directly. Core diff, alignment, and analysis functionality is not affected. Fix tracked: update `create_diff_report` helper in the test file to use the current `align_events` signature.
+
+Some tests are skipped due to optional dependencies (audio transcription via BasicPitch, live web server). Run `pip install -e ".[audio]"` for audio tests.
 
 ## License
 
